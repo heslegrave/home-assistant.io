@@ -11,7 +11,7 @@ ha_codeowners:
   - '@bdraco'
 ---
 
-The HomeKit Bridge integration allows you to forward entities from Home Assistant to Apple HomeKit, so they can be controlled from Apple's Home app and Siri. Please make sure that you have read the [considerations](#considerations) listed below to save you some trouble later. However if you do encounter issues, check out the [troubleshooting](#troubleshooting) section.
+The HomeKit Bridge integration allows you to make your Home Assistant entities available in Apple HomeKit, so they can be controlled from Apple's Home app and Siri. Please make sure that you have read the [considerations](#considerations) listed below to save you some trouble later. However if you do encounter issues, check out the [troubleshooting](#troubleshooting) section.
 
 <div class="note">
 
@@ -143,6 +143,10 @@ homekit:
                 description: The `entity_id` of a `sensor` entity to use as the battery of the accessory. HomeKit will cache an accessory's feature set on the first run so a device must be [reset](#resetting-accessories) for any change to take effect.
                 required: false
                 type: string
+              linked_doorbell_sensor:
+                description: The `entity_id` of a `binary_sensor` entity to use as the doorbell sensor of the camera accessory to enable doorbell notifications. HomeKit will cache an accessory's feature set on the first run so a device must be [reset](#resetting-accessories) for any change to take effect.
+                required: false
+                type: string
               linked_motion_sensor:
                 description: The `entity_id` of a `binary_sensor` entity to use as the motion sensor of the camera accessory to enable motion notifications. HomeKit will cache an accessory's feature set on the first run so a device must be [reset](#resetting-accessories) for any change to take effect.
                 required: false
@@ -171,6 +175,11 @@ homekit:
                 required: false
                 type: string
                 default: '`switch`'
+              stream_count:
+                description: Only for `camera` entities. The number of simultaneous stream the camera can support.
+                required: false
+                type: integer
+                default: 3                
               stream_address:
                 description: Only for `camera` entities. The source IP address to use when streaming to RTP clients. If your Home Assistant host has multiple interfaces, selecting a specific IP may be necessary.
                 required: false
@@ -281,6 +290,12 @@ The HomeKit Accessory Protocol Specification only allow a maximum of 150 unique 
 Unfortunately, `HomeKit` doesn't support any persistent storage - only the configuration for accessories that are added to the `Home Assistant Bridge` are kept. To avoid problems, it is recommended to use an automation to always start `HomeKit` with at least the same entities setup. If, for some reason, some entities are not set up, their configuration will be deleted. (State unknown or similar will not cause any issues.)
 
 A common situation might be if you decide to disable parts of the configuration for testing. Please make sure to disable `auto start` and `turn off` the `Start HomeKit` automation (if you have one).
+
+### Multiple HomeKit instances
+
+If you create a HomeKit integration via the UI (i.e., **Configuration** >> **Integrations**), it must be configured via the UI **only**. While the UI only offers limited configuration options at the moment, any attempt to configure a HomeKit instance created in the UI via the `configuration.yaml` file will result in another instance of HomeKit running on a different port.
+
+It is recommended to only edit a HomeKit instance in the UI that was created in the UI, and likewise, only edit a HomeKit instance in YAML that was created in YAML.
 
 ## Disable Auto Start
 
@@ -466,6 +481,7 @@ The following integrations are currently supported:
 | device_tracker / person | Sensor | Support for `occupancy` device class. |
 | fan | Fan | Support for `on / off`, `direction` and `oscillating`. |
 | fan | Fan | All fans that support `speed` and `speed_list` through value mapping: `speed_list` is assumed to contain values in ascending order. The numeric ranges of HomeKit map to a corresponding entry of `speed_list`. The first entry of `speed_list` should be equivalent to `off` to match HomeKit's concept of fan speeds. (Example: `speed_list` = [`off`, `low`, `high`]; `off` -> `<= 33`; `low` -> between `33` and `66`; `high` -> `> 66`) |
+| humidifier | HumidifierDehumidifier | Humidifier and Dehumidifier devices. |
 | light | Light | Support for `on / off`, `brightness` and `rgb_color`. |
 | lock | DoorLock | Support for `lock / unlock`. |
 | media_player | MediaPlayer | Represented as a series of switches which control `on / off`, `play / pause`, `play / stop`, or `mute` depending on `supported_features` of entity and the `mode` list specified in `entity_config`. |
@@ -643,9 +659,9 @@ Ensure that the [`ffmpeg`](/integrations/ffmpeg) integration is configured corre
 
 If your camera supports native H.264 streams, Home Assistant can avoid converting the video stream, which is an expensive operation. To enable native H.264 streaming when configured via YAML, change the `video_codec` to `copy`. To allow native H.264 streaming when via the UI, go to **Configuration** >> **Integrations** in the UI, click **Options** for your HomeKit Bridge, and check the box for your camera on the `Cameras that support native H.264 streams` screen.
 
-#### One video stream limit per camera
+#### Multiple camera streams
 
-Currently, cameras are limited to one video stream. Multiple streams are not possible at this time. One workaround is to create a second `HomeKit Bridge` to generate a copy of the camera accessory.
+Multiple streams can be configured with the `stream_count` configuration option. If you alter the number of streams, you must [reset the accessory](#resetting-accessories).
 
 #### Camera audio is not streaming
 
@@ -654,6 +670,10 @@ Make sure `support_audio` is `True` in the camera's entity configuration.
 #### Camera motion notifications
 
 A motion sensor can be linked via the `linked_motion_sensor` configuration setting to enable motion notifications.
+
+#### Doorbell button notifications
+
+A doorbell sensor can be linked via the `linked_doorbell_sensor` configuration setting to enable motion notifications.
 
 #### HomeKit stalls or devices respond slowly with many cameras
 
